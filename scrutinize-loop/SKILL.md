@@ -1,6 +1,6 @@
 ---
 name: scrutinize-loop
-description: Continuous autonomous review-and-repair loop. Operates iteratively by executing a full Scrutinize pass, identifying bugs, edge cases, and architectural flaws, applying surgical fixes, validating the repairs, and re-scrutinizing until zero findings remain (VERDICT: SHIP). Requires the 'scrutinize' skill as the core review engine. Trigger on /scrutinize-loop, /autofix-loop, or when the user asks to "scrutinize and fix until clean", "วน scrutinize จนกว่าจะไม่เจอบัค", "แก้บัควนไปเรื่อยๆ จนเสร็จ", or requests iterative automated quality convergence.
+description: "Continuous autonomous review-and-repair loop. Operates iteratively by executing a full Scrutinize pass, identifying bugs, edge cases, and architectural flaws, applying surgical fixes, validating the repairs, and re-scrutinizing until zero findings remain (VERDICT: SHIP). Requires the 'scrutinize' skill as the core review engine. Trigger on /scrutinize-loop, /autofix-loop, or when the user asks to 'scrutinize and fix until clean', 'วน scrutinize จนกว่าจะไม่เจอบัค', 'แก้บัควนไปเรื่อยๆ จนเสร็จ', or requests iterative automated quality convergence."
 ---
 
 # Scrutinize Loop (Iterative Review & Repair Engine)
