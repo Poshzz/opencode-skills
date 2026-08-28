@@ -5,19 +5,38 @@ description: "Continuous autonomous review-and-repair loop. Operates iteratively
 
 # Scrutinize Loop (Iterative Review & Repair Engine)
 
-An autonomous convergence loop that combines outsider-perspective scrutiny with surgical repairs. It iterates continuously: **Review → Prioritize → Fix → Validate → Re-Review** until the codebase reaches **Zero Findings (VERDICT: SHIP)**.
+An autonomous convergence loop that combines outsider-perspective scrutiny with surgical repairs. It iterates continuously: **Review → Prioritize → Fix → Validate → Re-Review** until the codebase reaches **Zero Actionable Findings (VERDICT: SHIP)**.
 
 > [!IMPORTANT]
-> **Prerequisite:** This skill strictly requires the **`scrutinize`** skill (`~/.agents/skills/scrutinize/SKILL.md`) as its foundational review engine. Read and adhere to `scrutinize`'s 3-step evaluation discipline (Intent → Trace → Verify) on every pass.
+> **Prerequisite:** This skill strictly requires the **`scrutinize`** skill (`scrutinize/SKILL.md`) as its foundational review engine. Read and adhere to `scrutinize`'s 3-step evaluation discipline (Intent → Trace → Verify) on every pass.
 
 ---
 
-## Operating Principles
+## 🛡️ Anti-Hallucination & Convergence Guardrails
 
-1. **Autonomous Convergence**: Do not stop at the first fix. If bugs or code defects are discovered, fix them immediately, run automated verification, and immediately trigger the next Scrutinize round.
-2. **Cold-Eye Scrutiny on Each Round**: Treat the newly modified code as if someone else wrote it. Trace the new code paths end-to-end to catch secondary bugs or unintended regressions introduced by the fix.
-3. **Surgical, Root-Cause Fixes**: Do not apply shotgun changes or mask symptoms. Use the discipline from `debug-mantra` to address the core mechanism.
-4. **Safety & Termination Gate**: Default loop safety limit is **5 iterations**. If findings do not converge to zero within 5 rounds, halt, document the oscillation/blocker, and request user guidance.
+To prevent LLMs from hallucinating, self-confirming bad fixes, oscillating, or entering infinite loops:
+
+1. **Adversarial Posture on Re-Review (Cold-Eye Re-Scrutiny)**:
+   - When reviewing your own fixes from previous rounds, **do not assume the fix was correct**.
+   - Treat the new code as if written by an outsider. Actively look for secondary bugs, broken edge cases, null pointer regressions, or unhandled concurrency introduced by the fix.
+
+2. **No Design Oscillation**:
+   - Never flip-flop between two architectural or stylistic choices (e.g. splitting vs inlining a function) across rounds.
+   - Once a fix is applied, do not revert it in a subsequent round unless proven broken by an explicit test failure.
+
+3. **Zero-Test Fallback (Test Rigor)**:
+   - If automated test suites (`pytest`, `npm test`, etc.) exist, run them on every round.
+   - If **no automated test suite exists**, create a temporary reproduction/validation script (e.g. in a scratch folder or memory test) or conduct a verifiable step-by-step trace table. Never claim a fix works without running or tracing execution.
+
+4. **Escalation Gate (Human-in-the-Loop)**:
+   - If a defect stems from **ambiguous requirements**, requires **breaking public API contracts**, or needs **database schema migrations**, **HALT the loop immediately**.
+   - Present the trade-offs to the user and ask for explicit direction instead of guessing.
+
+5. **Convergence Threshold & Nit Policy**:
+   - **P0 (Blockers)**: 0 allowed. Must be fixed.
+   - **P1 (Defects)**: 0 allowed. Must be fixed.
+   - **P2 (Nits/Cosmetic)**: Note them in the report, but **do not block the loop from converging**. Do not churn infinite rounds on minor stylistic preferences.
+   - **Safety Limit**: Maximum **5 iterations**. If findings do not converge to zero within 5 rounds, halt, summarize remaining blockers, and request user guidance.
 
 ---
 
@@ -26,16 +45,18 @@ An autonomous convergence loop that combines outsider-perspective scrutiny with 
 ```mermaid
 graph TD
     A[Start Scrutinize Loop] --> B[Run Scrutinize Pass N]
-    B --> C{Findings Found?}
-    C -- Yes --> D[Prioritize P0 / P1 / P2]
-    D --> E[Apply Surgical Fixes]
-    E --> F[Automated Validation / Tests]
-    F --> G{Tests Pass?}
-    G -- No --> E
-    G -- Yes --> H[Increment Round N+1]
-    H --> B
-    C -- No (0 Findings) --> I[VERDICT: SHIP 🚀]
-    I --> J[Generate Final Convergence Report]
+    B --> C{P0 / P1 Findings?}
+    C -- Yes --> D[Prioritize P0 / P1 Findings]
+    D --> E{Breaking / Ambiguous?}
+    E -- Yes --> F[HALT: Request User Decision]
+    E -- No --> G[Apply Surgical Root-Cause Fixes]
+    G --> H[Run Automated / Scratch Tests]
+    H --> I{Tests Pass?}
+    I -- No --> G
+    I -- Yes --> J[Round N+1: Adversarial Re-Review]
+    J --> B
+    C -- No (0 P0/P1) --> K[VERDICT: SHIP 🚀]
+    K --> L[Generate Final Convergence Report]
 ```
 
 ---
@@ -54,10 +75,11 @@ Apply the full 3-step `scrutinize` workflow:
 3. **Verify**: Test edge cases, concurrency, race conditions, memory leaks, boundary limits, and silent regressions.
 
 ### Step 3: Decision Gate (Evaluate Findings)
-- **If 0 findings found**:
+- **If 0 P0/P1 findings found**:
   - Output `VERDICT: SHIP`.
   - Proceed to Step 6 (Final Convergence Report) and terminate loop.
-- **If findings > 0 found**:
+- **If P0/P1 findings found**:
+  - Check for Escalation Gate: If requirement is ambiguous or breaks API contract, pause and ask the user.
   - Itemize each finding with severity:
     - **P0 (Blocker)**: Crashes, data corruption, security vulnerability, deadlocks.
     - **P1 (Defect)**: Functional failure, race condition, resource leak, broken contract.
@@ -70,13 +92,13 @@ Apply the full 3-step `scrutinize` workflow:
 - Preserve documentation integrity and existing comments.
 - Avoid introducing unnecessary external dependencies.
 
-### Step 5: Automated Validation & Regression Check
-- Run existing automated test suites (e.g. `pytest`, `npm test`, custom reproduction scripts).
-- If tests fail, diagnose immediately using `debug-mantra` before proceeding.
-- Once tests pass cleanly, increment round counter (`Round = Round + 1`) and **loop back to Step 2**.
+### Step 5: Validation & Regression Check
+- Run existing automated test suites (e.g. `pytest`, `npm test`).
+- If no test suite exists, execute a minimal verification script or concrete trace scenario.
+- Once verified, increment round counter (`Round = Round + 1`) and **loop back to Step 2 with Adversarial Posture**.
 
 ### Step 6: Final Convergence Report
-When 0 findings remain, compile the final summary report for the user:
+When 0 P0/P1 findings remain, compile the final summary report for the user:
 
 ```markdown
 # 🏁 Scrutinize Loop Convergence Report
@@ -90,11 +112,11 @@ When 0 findings remain, compile the final summary report for the user:
 | Round | Findings Detected | Status | Key Fixes |
 |-------|-------------------|--------|-----------|
 | 1     | 3 (1 P0, 2 P1)    | FIXED  | Fixed race condition, clamped buffer bounds |
-| 2     | 1 (P2)            | FIXED  | Handled touch scroll boundary on mobile |
-| 3     | 0                 | CLEAN  | Perfect verification, 0 issues remaining |
+| 2     | 1 (P1)            | FIXED  | Handled touch scroll boundary on mobile |
+| 3     | 0 (0 P0, 0 P1)    | CLEAN  | Adversarial verification clean, 0 issues remaining |
 
 ## Code Integrity Verification
-- [x] All automated tests passing (100%)
+- [x] All automated / scratch tests passing (100%)
 - [x] Concurrency & Race condition checks clean
 - [x] Edge-case & Boundary limits validated
 - [x] Production ready
